@@ -2,3 +2,5 @@
 .DS_Store
 record_diary.md
 .history_rd.md
+document/
+.env

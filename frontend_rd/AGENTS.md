@@ -1,19 +1,19 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Next.js Custom Agent Rules (Breaking Changes Version)
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This environment uses a customized Next.js with breaking changes. Standard training data may be outdated. Always prioritize the conventions defined in this project's local documentation over general knowledge.
 
-## Logging Rules
-- After every task (bug fix, feature implementation, or refactoring), you **MUST** document the changes in `../.history_rd.md`.
-- Use the following format for each entry:
+## 1. Logging Rules (Mandatory)
+- **Task Completion**: After every bug fix, feature, or refactoring, you **MUST** record the entry in `./.history_rd.md`.
+- **File Management**: Create `./.history_rd.md` at the project root if it does not exist.
+- **Entry Format**:
   - **Date**: [YYYY-MM-DD]
-  - **Summary**: A concise summary of what was changed or added. Write the summary in Korean for better readability.
-  - **Affected Files**: A list of the specific files that were created or modified.
-  - **Details**: Key modifications, affected files, and the reasoning behind changes.
-- If `../.history_rd.md` does not exist, create it before making your first entry.
+  - **Summary**: 변경 및 추가 사항 요약 (Korean).
+  - **Affected Files**: Modified or created file paths.
+  - **Details**: Key modifications and technical reasoning (Korean/English).
 
-## Terminal & Workflow Rules
-- **Propose, Don't Execute**: Do not use the internal terminal execution tool. Instead, provide all necessary commands in a markdown code block.
-- **Handover to User**: After providing the commands, end your response by asking the user to run them and provide the results (e.g., "Please run the commands above and let me know the output.").
-- **Maintain Flow**: Do not wait for a system-level approval to proceed. Treat the command as information shared with the user so the conversation continues naturally.
+## 2. Terminal & Workflow Rules
+- **Execution Policy**: **STRICTLY PROHIBITED** to execute terminal commands internally. You must only suggest them.
+- **Command Presentation**: Provide all necessary commands within a single Markdown code block for easy copying.
+- **Handover Protocol**: Always end your response by asking the user to execute the commands and report the results.
+  - Example: "위 명령어를 실행하신 후, 터미널 출력 결과를 알려주세요."
+- **Continuous Flow**: Do not pause for system approval. Provide the solution and the command in one go to maintain the conversation flow.
