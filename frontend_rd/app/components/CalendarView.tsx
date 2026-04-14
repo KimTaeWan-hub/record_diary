@@ -42,8 +42,8 @@ function formatExpense(amount: number): string {
 
 export default function CalendarView() {
   const router = useRouter();
-  const today = new Date(2026, 3, 13); // 2026-04-13 (목업용)
-  const [viewDate, setViewDate] = useState(new Date(2026, 3, 1));
+  const today = new Date();
+  const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -52,8 +52,8 @@ export default function CalendarView() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const totalCells = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
 
-  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+  const prevMonth = () => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
   const isToday = (day: number) =>
     year === today.getFullYear() &&
