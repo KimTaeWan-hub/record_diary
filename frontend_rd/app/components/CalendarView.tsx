@@ -1,26 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-// 목업 데이터: 날짜 → { 일기 여부, 지출 합계 }
-const mockData: Record<string, { hasEntry: boolean; expense?: number }> = {
-  "2026-04-01": { hasEntry: true, expense: 15000 },
-  "2026-04-03": { hasEntry: true, expense: 8200 },
-  "2026-04-05": { hasEntry: true },
-  "2026-04-07": { hasEntry: true, expense: 32500 },
-  "2026-04-09": { hasEntry: false, expense: 5500 },
-  "2026-04-10": { hasEntry: true, expense: 12000 },
-  "2026-04-11": { hasEntry: true },
-  "2026-04-13": { hasEntry: true, expense: 45200 },
-  "2026-04-14": { hasEntry: true, expense: 21000 },
-  "2026-04-16": { hasEntry: true, expense: 9800 },
-  "2026-04-19": { hasEntry: true },
-  "2026-04-21": { hasEntry: true, expense: 67000 },
-  "2026-04-22": { hasEntry: true, expense: 4500 },
-  "2026-04-25": { hasEntry: true, expense: 18000 },
-  "2026-04-28": { hasEntry: true, expense: 11000 },
-};
+type DayData = { hasEntry: boolean; expense?: number };
+type CalendarData = Record<string, DayData>;
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -44,9 +29,50 @@ export default function CalendarView() {
   const router = useRouter();
   const today = new Date();
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [calendarData, setCalendarData] = useState<CalendarData>({});
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+
+  useEffect(() => {
+    const fetchMonthData = async () => {
+      const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${new Date(year, month + 1, 0).getDate()}`;
+
+      const [diariesRes, expensesRes] = await Promise.all([
+        supabase
+          .from("diaries")
+          .select("date, content")
+          .gte("date", firstDay)
+          .lte("date", lastDay),
+        supabase
+          .from("expenses")
+          .select("date, amount")
+          .gte("date", firstDay)
+          .lte("date", lastDay),
+      ]);
+
+      const data: CalendarData = {};
+
+      diariesRes.data?.forEach((d) => {
+        if (d.content.trim() !== "") {
+          data[d.date] = { ...data[d.date], hasEntry: true };
+        }
+      });
+
+      expensesRes.data?.forEach((e) => {
+        const prev = data[e.date] ?? { hasEntry: false };
+        data[e.date] = {
+          ...prev,
+          expense: (prev.expense ?? 0) + e.amount,
+        };
+      });
+
+      setCalendarData(data);
+    };
+
+    fetchMonthData();
+  }, [year, month]);
 
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -111,7 +137,7 @@ export default function CalendarView() {
           const dayNum = idx - firstDayOfWeek + 1;
           const isValid = dayNum >= 1 && dayNum <= daysInMonth;
           const key = isValid ? toDateKey(year, month, dayNum) : null;
-          const data = key ? mockData[key] : null;
+          const data = key ? calendarData[key] : null;
           const colIndex = idx % 7;
 
           return (
