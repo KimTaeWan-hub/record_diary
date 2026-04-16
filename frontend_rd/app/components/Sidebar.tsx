@@ -8,6 +8,10 @@ const navItems = [
   { label: "통계", sublabel: "대시보드", href: "/stats" },
 ];
 
+const bottomItems = [
+  { label: "설정", sublabel: "카테고리 관리", href: "/settings" },
+];
+
 export default function Sidebar() {
   return (
     <aside className="w-60 shrink-0 h-full flex flex-col border-r border-gray-100 bg-[#f9f8f6]">
@@ -41,8 +45,18 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="px-5 py-4 border-t border-gray-100">
-        <p className="text-[11px] text-gray-400 text-center">
+      <div className="px-3 py-3 border-t border-gray-100 space-y-0.5">
+        {bottomItems.map((item, idx) => (
+          <Link
+            key={idx}
+            href={item.href}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-md text-sm group hover:bg-gray-200/70 transition-colors"
+          >
+            <span className="font-medium text-gray-600 group-hover:text-gray-900">{item.label}</span>
+            <span className="text-[11px] text-gray-400">{item.sublabel}</span>
+          </Link>
+        ))}
+        <p className="text-[11px] text-gray-400 text-center pt-2">
           조선왕조실록 정신으로 기록합니다
         </p>
       </div>

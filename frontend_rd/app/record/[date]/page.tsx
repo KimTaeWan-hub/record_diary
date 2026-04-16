@@ -453,7 +453,7 @@ export default function RecordPage() {
 
                         {openPickerId === line.id && (
                           <div
-                            className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-md z-20 min-w-[96px] py-1"
+                            className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-md z-20 min-w-[120px] py-1"
                           >
                             {activityCategories.map((cat) => (
                               <button
@@ -633,14 +633,14 @@ export default function RecordPage() {
                             type="text"
                             value={row.place}
                             onChange={(e) => updateExpenseRow(row.id, "place", e.target.value)}
-                            placeholder="장소"
+                            placeholder="이용처"
                             className="w-full text-[12px] text-gray-600 bg-transparent outline-none placeholder:text-gray-300 leading-snug"
                           />
                           <input
                             type="text"
                             value={row.item}
                             onChange={(e) => updateExpenseRow(row.id, "item", e.target.value)}
-                            placeholder="물품명"
+                            placeholder="내용"
                             className="w-full text-[11px] text-gray-400 bg-transparent outline-none placeholder:text-gray-300 leading-snug"
                           />
                         </div>

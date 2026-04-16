@@ -72,51 +72,59 @@ export default function DiaryPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽 필터 */}
-          <aside className="w-48 shrink-0 border-r border-gray-100 bg-[#f9f8f6] overflow-y-auto">
-            <div className="px-4 py-5">
-              <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-2">연도</p>
-              <div className="space-y-0.5 mb-5">
-                {years.map((y) => (
-                  <button
-                    key={y}
-                    onClick={() => setSelectedYear(y)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
-                      selectedYear === y
-                        ? "bg-gray-900 text-white font-medium"
-                        : "text-gray-500 hover:bg-gray-200/70"
-                    }`}
-                  >
-                    {y}년
-                  </button>
-                ))}
+          <aside className="w-44 shrink-0 border-r border-gray-100 bg-[#f9f8f6] flex flex-col overflow-hidden">
+            <div className="flex-1 px-3 py-4 flex flex-col gap-4 overflow-hidden">
+
+              {/* 연도 */}
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-1.5">연도</p>
+                <div className="flex flex-wrap gap-1">
+                  {years.map((y) => (
+                    <button
+                      key={y}
+                      onClick={() => setSelectedYear(y)}
+                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                        selectedYear === y
+                          ? "bg-gray-900 text-white font-medium"
+                          : "text-gray-500 hover:bg-gray-200/70"
+                      }`}
+                    >
+                      {y}년
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-2">월</p>
-              <div className="space-y-0.5">
-                <button
-                  onClick={() => setSelectedMonth(null)}
-                  className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
-                    selectedMonth === null
-                      ? "bg-gray-900 text-white font-medium"
-                      : "text-gray-500 hover:bg-gray-200/70"
-                  }`}
-                >
-                  전체
-                </button>
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+              {/* 월 */}
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-1.5">월</p>
+                <div className="grid grid-cols-3 gap-1">
                   <button
-                    key={m}
-                    onClick={() => setSelectedMonth(m)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
-                      selectedMonth === m
+                    onClick={() => setSelectedMonth(null)}
+                    className={`col-span-3 py-1 rounded text-xs transition-colors ${
+                      selectedMonth === null
                         ? "bg-gray-900 text-white font-medium"
                         : "text-gray-500 hover:bg-gray-200/70"
                     }`}
                   >
-                    {m}월
+                    전체
                   </button>
-                ))}
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedMonth(m)}
+                      className={`py-1 rounded text-xs transition-colors ${
+                        selectedMonth === m
+                          ? "bg-gray-900 text-white font-medium"
+                          : "text-gray-500 hover:bg-gray-200/70"
+                      }`}
+                    >
+                      {m}월
+                    </button>
+                  ))}
+                </div>
               </div>
+
             </div>
           </aside>
 

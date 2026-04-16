@@ -201,25 +201,33 @@ export default function ExpensePage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽 필터 */}
-          <aside className="w-48 shrink-0 border-r border-gray-100 bg-[#f9f8f6] overflow-y-auto">
-            <div className="px-4 py-5">
-              <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-2">연도</p>
-              <div className="space-y-0.5 mb-5">
-                {years.map((y) => (
-                  <button key={y} onClick={() => setSelectedYear(y)} className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${selectedYear === y ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>{y}년</button>
-                ))}
+          <aside className="w-44 shrink-0 border-r border-gray-100 bg-[#f9f8f6] flex flex-col overflow-hidden">
+            <div className="flex-1 px-3 py-4 flex flex-col gap-4 overflow-hidden">
+
+              {/* 연도 */}
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-1.5">연도</p>
+                <div className="flex flex-wrap gap-1">
+                  {years.map((y) => (
+                    <button key={y} onClick={() => setSelectedYear(y)} className={`px-2 py-1 rounded text-xs transition-colors ${selectedYear === y ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>{y}년</button>
+                  ))}
+                </div>
               </div>
-              <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-2">월</p>
-              <div className="space-y-0.5">
-                <button onClick={() => setSelectedMonth(null)} className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${selectedMonth === null ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>전체</button>
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
-                  <button key={m} onClick={() => setSelectedMonth(m)} className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${selectedMonth === m ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>{m}월</button>
-                ))}
+
+              {/* 월 */}
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-1.5">월</p>
+                <div className="grid grid-cols-3 gap-1">
+                  <button onClick={() => setSelectedMonth(null)} className={`col-span-3 py-1 rounded text-xs transition-colors ${selectedMonth === null ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>전체</button>
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                    <button key={m} onClick={() => setSelectedMonth(m)} className={`py-1 rounded text-xs transition-colors ${selectedMonth === m ? "bg-gray-900 text-white font-medium" : "text-gray-500 hover:bg-gray-200/70"}`}>{m}월</button>
+                  ))}
+                </div>
               </div>
 
               {/* 수지 요약 */}
               {!loading && (
-                <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
+                <div className="pt-3 border-t border-gray-200 space-y-2.5">
                   <div>
                     <p className="text-[10px] text-gray-300 uppercase tracking-widest mb-0.5">수입</p>
                     <p className="text-sm font-bold text-emerald-600">{formatAmount(totalIncome)}</p>
@@ -282,8 +290,8 @@ export default function ExpensePage() {
                                     )}
                                   </div>
                                   <div className="flex gap-2">
-                                    <input type="text" value={expenseEditForm.place} onChange={(e) => setExpenseEditForm((f) => ({ ...f, place: e.target.value }))} placeholder="장소" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
-                                    <input type="text" value={expenseEditForm.item} onChange={(e) => setExpenseEditForm((f) => ({ ...f, item: e.target.value }))} placeholder="물품" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
+                                    <input type="text" value={expenseEditForm.place} onChange={(e) => setExpenseEditForm((f) => ({ ...f, place: e.target.value }))} placeholder="이용처" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
+                                    <input type="text" value={expenseEditForm.item} onChange={(e) => setExpenseEditForm((f) => ({ ...f, item: e.target.value }))} placeholder="내용" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
                                     <input type="text" inputMode="numeric" value={expenseEditForm.amount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setExpenseEditForm((f) => ({ ...f, amount: raw ? parseInt(raw, 10).toLocaleString() : "" })); }} placeholder="금액" className="w-20 text-[12px] border-b border-gray-200 outline-none py-0.5 text-right text-gray-700 placeholder:text-gray-300 bg-transparent" />
                                     <span className="text-[10px] text-gray-400 self-end pb-0.5">원</span>
                                   </div>
