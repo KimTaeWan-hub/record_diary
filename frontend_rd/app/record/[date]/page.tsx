@@ -6,6 +6,7 @@ import Link from "next/link";
 import Sidebar from "../../components/Sidebar";
 import { supabase } from "@/lib/supabase";
 import Toast from "@/app/components/Toast";
+import { indexDate } from "@/lib/ai";
 
 const DEFAULT_EXPENSE_CATEGORIES = [
   "식비", "교통비", "생활용품", "문화/여가", "의류", "의료", "구독", "기타",
@@ -41,6 +42,17 @@ export default function RecordPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const isLoadedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 로드 완료 시 자동 저장 활성화
+  useEffect(() => {
+    if (!loading) {
+      setTimeout(() => { isLoadedRef.current = true; }, 100);
+    }
+  }, [loading]);
 
   // diary 값이 바뀔 때 textarea 높이 동기화
   useEffect(() => {
@@ -228,7 +240,11 @@ export default function RecordPage() {
   };
 
   const removeIncomeRow = (id: number) => {
-    setIncomes((prev) => prev.filter((r) => r.id !== id));
+    setIncomes((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      if (next.length === 0) return [{ id: nextIncomeId++, category: "월급", source: "", amount: "" }];
+      return next;
+    });
   };
 
   const updateIncomeRow = (id: number, field: keyof IncomeRow, value: string) => {
@@ -248,7 +264,11 @@ export default function RecordPage() {
   };
 
   const removeExpenseRow = (id: number) => {
-    setExpenses((prev) => prev.filter((r) => r.id !== id));
+    setExpenses((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      if (next.length === 0) return [{ id: nextExpenseId++, category: "식비", place: "", item: "", amount: "" }];
+      return next;
+    });
   };
 
   const updateExpenseRow = (id: number, field: keyof ExpenseRow, value: string) => {
@@ -264,8 +284,9 @@ export default function RecordPage() {
 
   const itemCount = expenses.filter((r) => r.amount !== "").length;
 
-  const handleSave = async () => {
+  const handleSave = async (silent = false) => {
     setSaving(true);
+    setSaveStatus("saving");
     try {
       // 일기 저장
       const { error: diaryError } = await supabase.from("diaries").upsert(
@@ -329,14 +350,32 @@ export default function RecordPage() {
         if (incInsError) { console.error("income insert error:", incInsError); throw incInsError; }
       }
 
-      setToast({ message: "저장됐어요.", type: "success" });
+      if (!silent) setToast({ message: "저장됐어요.", type: "success" });
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+      indexDate(date); // 저장 후 임베딩 갱신 (비동기, 실패 무시)
     } catch (e) {
-      setToast({ message: "저장에 실패했어요.", type: "error" });
+      if (!silent) setToast({ message: "저장에 실패했어요.", type: "error" });
+      setSaveStatus("error");
       console.error(e);
     } finally {
       setSaving(false);
     }
   };
+
+  // 자동 저장 — 마지막 변경 후 1.5초 뒤 저장
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus("idle");
+    saveTimerRef.current = setTimeout(() => {
+      handleSave(true);
+    }, 1500);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diary, lines, expenses, incomes]);
 
   return (
     <div className="flex h-full w-full">
@@ -367,13 +406,19 @@ export default function RecordPage() {
               <p className="text-xs text-gray-400 mt-0.5">{dayOfWeek}</p>
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? "불러오는 중..." : saving ? "저장 중..." : "저장"}
-          </button>
+          <div className="flex items-center gap-3">
+            {loading && <span className="text-xs text-gray-300">불러오는 중...</span>}
+            {!loading && saveStatus === "saving" && <span className="text-xs text-gray-400">저장 중...</span>}
+            {!loading && saveStatus === "saved" && <span className="text-xs text-gray-400">저장됨</span>}
+            {!loading && saveStatus === "error" && (
+              <button
+                onClick={() => handleSave(false)}
+                className="text-xs text-rose-500 hover:text-rose-700 transition-colors"
+              >
+                저장 실패 — 다시 시도
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 7:3 본문 */}
@@ -629,19 +674,27 @@ export default function RecordPage() {
                               </div>
                             )}
                           </div>
-                          <input
-                            type="text"
+                          <textarea
                             value={row.place}
-                            onChange={(e) => updateExpenseRow(row.id, "place", e.target.value)}
+                            onChange={(e) => {
+                              updateExpenseRow(row.id, "place", e.target.value);
+                              e.target.style.height = "auto";
+                              e.target.style.height = e.target.scrollHeight + "px";
+                            }}
                             placeholder="이용처"
-                            className="w-full text-[12px] text-gray-600 bg-transparent outline-none placeholder:text-gray-300 leading-snug"
+                            rows={1}
+                            className="w-full text-[12px] text-gray-600 bg-transparent outline-none placeholder:text-gray-300 leading-snug resize-none overflow-hidden"
                           />
-                          <input
-                            type="text"
+                          <textarea
                             value={row.item}
-                            onChange={(e) => updateExpenseRow(row.id, "item", e.target.value)}
+                            onChange={(e) => {
+                              updateExpenseRow(row.id, "item", e.target.value);
+                              e.target.style.height = "auto";
+                              e.target.style.height = e.target.scrollHeight + "px";
+                            }}
                             placeholder="내용"
-                            className="w-full text-[11px] text-gray-400 bg-transparent outline-none placeholder:text-gray-300 leading-snug"
+                            rows={1}
+                            className="w-full text-[11px] text-gray-400 bg-transparent outline-none placeholder:text-gray-300 leading-snug resize-none overflow-hidden"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0 mt-1">
@@ -660,8 +713,7 @@ export default function RecordPage() {
                           <span className="text-[10px] text-gray-400">원</span>
                           <button
                             onClick={() => removeExpenseRow(row.id)}
-                            disabled={expenses.length === 1}
-                            className="opacity-0 group-hover:opacity-100 disabled:!opacity-0 text-gray-300 hover:text-gray-500 transition-all text-sm leading-none ml-0.5"
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all text-sm leading-none ml-0.5"
                             aria-label="삭제"
                           >
                             ×
@@ -797,12 +849,16 @@ export default function RecordPage() {
                               </div>
                             )}
                           </div>
-                          <input
-                            type="text"
+                          <textarea
                             value={row.source}
-                            onChange={(e) => updateIncomeRow(row.id, "source", e.target.value)}
+                            onChange={(e) => {
+                              updateIncomeRow(row.id, "source", e.target.value);
+                              e.target.style.height = "auto";
+                              e.target.style.height = e.target.scrollHeight + "px";
+                            }}
                             placeholder="출처"
-                            className="w-full text-[12px] text-gray-600 bg-transparent outline-none placeholder:text-gray-300 leading-snug"
+                            rows={1}
+                            className="w-full text-[12px] text-gray-600 bg-transparent outline-none placeholder:text-gray-300 leading-snug resize-none overflow-hidden"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0 mt-1">
@@ -821,8 +877,7 @@ export default function RecordPage() {
                           <span className="text-[10px] text-gray-400">원</span>
                           <button
                             onClick={() => removeIncomeRow(row.id)}
-                            disabled={incomes.length === 1}
-                            className="opacity-0 group-hover:opacity-100 disabled:!opacity-0 text-gray-300 hover:text-gray-500 transition-all text-sm leading-none ml-0.5"
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all text-sm leading-none ml-0.5"
                             aria-label="삭제"
                           >
                             ×

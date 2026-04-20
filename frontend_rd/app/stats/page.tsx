@@ -16,6 +16,11 @@ function formatAmountFull(n: number) {
   return n.toLocaleString() + "원";
 }
 
+function formatDate(dateStr: string) {
+  const [, m, d] = dateStr.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
 // ── CSS 세로 막대 차트 ──────────────────────────────────────────
 function VerticalBarChart({
   data,
@@ -29,20 +34,18 @@ function VerticalBarChart({
       {data.map((d) => (
         <div key={d.label} className="flex-1 flex flex-col items-center gap-0.5">
           <div className="flex items-end gap-0.5 w-full justify-center" style={{ height: "112px" }}>
-            {/* 수입 */}
             <div
               className="flex-1 bg-emerald-200 rounded-t-sm transition-all duration-500"
               style={{ height: `${(d.income / maxVal) * 100}%`, minHeight: d.income > 0 ? "2px" : "0" }}
               title={`수입 ${formatAmountFull(d.income)}`}
             />
-            {/* 지출 */}
             <div
               className="flex-1 bg-rose-200 rounded-t-sm transition-all duration-500"
               style={{ height: `${(d.expense / maxVal) * 100}%`, minHeight: d.expense > 0 ? "2px" : "0" }}
               title={`지출 ${formatAmountFull(d.expense)}`}
             />
           </div>
-          <span className="text-[9px] text-gray-300">{d.label}</span>
+          <span className="text-[9px] text-gray-500">{d.label}</span>
         </div>
       ))}
     </div>
@@ -66,9 +69,9 @@ function HorizontalBars({
         <div key={item.label}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] text-gray-600">{item.label}</span>
-            <span className="text-[11px] text-gray-400">{formatValue(item.value)}</span>
+            <span className="text-[11px] text-gray-600">{formatValue(item.value)}</span>
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
               className={`h-full ${color} rounded-full transition-all duration-500`}
               style={{ width: `${(item.value / maxVal) * 100}%` }}
@@ -89,12 +92,12 @@ function SimpleBarChart({ data }: { data: { label: string; value: number }[] }) 
         <div key={d.label} className="flex-1 flex flex-col items-center gap-0.5">
           <div className="w-full flex items-end justify-center" style={{ height: "80px" }}>
             <div
-              className="w-full bg-gray-200 rounded-t-sm transition-all duration-500"
+              className="w-full bg-gray-400 rounded-t-sm transition-all duration-500"
               style={{ height: `${(d.value / maxVal) * 100}%`, minHeight: d.value > 0 ? "2px" : "0" }}
               title={`${d.value}건`}
             />
           </div>
-          <span className="text-[9px] text-gray-300">{d.label}</span>
+          <span className="text-[9px] text-gray-500">{d.label}</span>
         </div>
       ))}
     </div>
@@ -115,9 +118,9 @@ function StatCard({
 }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-5 py-4">
-      <p className="text-[10px] text-gray-300 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">{label}</p>
       <p className={`text-xl font-bold leading-tight ${valueColor ?? "text-gray-900"}`}>{value}</p>
-      {sub && <p className="text-[11px] text-gray-300 mt-1">{sub}</p>}
+      {sub && <p className="text-[11px] text-gray-400 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -126,11 +129,14 @@ function StatCard({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-6 py-5">
-      <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-5">{title}</p>
+      <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-5">{title}</p>
       {children}
     </div>
   );
 }
+
+// ── 활동 아이템 타입 ──────────────────────────────────────────────
+type ActivityItem = { date: string; category: string; content: string };
 
 // ── 메인 ────────────────────────────────────────────────────────
 export default function StatsPage() {
@@ -149,6 +155,11 @@ export default function StatsPage() {
   const [totalIncome, setTotalIncome] = useState(0);
   const [diaryDays, setDiaryDays] = useState(0);
   const [activityCount, setActivityCount] = useState(0);
+
+  // 활동 정산용 전체 아이템
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [activityMonth, setActivityMonth] = useState<number | null>(null);
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchYears = async () => {
@@ -181,7 +192,7 @@ export default function StatsPage() {
         supabase.from("expenses").select("date, amount, category").gt("amount", 0).gte("date", startDate).lte("date", endDate),
         supabase.from("incomes").select("date, amount, category").gt("amount", 0).gte("date", startDate).lte("date", endDate),
         supabase.from("diaries").select("date").neq("content", "").gte("date", startDate).lte("date", endDate),
-        supabase.from("activities").select("date, category").neq("content", "").eq("type", "bullet").gte("date", startDate).lte("date", endDate),
+        supabase.from("activities").select("date, category, content").neq("content", "").eq("type", "bullet").gte("date", startDate).lte("date", endDate).order("date", { ascending: false }),
       ]);
 
       // 월별 지출
@@ -218,7 +229,7 @@ export default function StatsPage() {
           .map(([label, value]) => ({ label, value }))
       );
 
-      // 활동 카테고리
+      // 활동 카테고리 (차트용)
       const actCatMap: Record<string, number> = {};
       for (const a of actRes.data ?? []) {
         actCatMap[a.category] = (actCatMap[a.category] ?? 0) + 1;
@@ -229,6 +240,14 @@ export default function StatsPage() {
           .map(([label, value]) => ({ label, value }))
       );
       setActivityCount((actRes.data ?? []).length);
+
+      // 활동 정산용 전체 아이템
+      const items = (actRes.data ?? []) as ActivityItem[];
+      setActivityItems(items);
+
+      // 초기 모든 카테고리 펼치기
+      const cats = new Set(items.map((i) => i.category));
+      setExpandedCats(cats);
 
       // 월별 일기
       const diaMonth: Record<number, number> = {};
@@ -260,6 +279,30 @@ export default function StatsPage() {
 
   const net = totalIncome - totalExpense;
 
+  // 활동 정산 — 월 필터 적용
+  const filteredActivityItems = activityMonth === null
+    ? activityItems
+    : activityItems.filter((a) => parseInt(a.date.split("-")[1]) === activityMonth);
+
+  // 카테고리별 그룹 (건수 내림차순)
+  const activityGrouped = filteredActivityItems.reduce<Record<string, ActivityItem[]>>((acc, a) => {
+    if (!acc[a.category]) acc[a.category] = [];
+    acc[a.category].push(a);
+    return acc;
+  }, {});
+  const sortedActivityCats = Object.keys(activityGrouped).sort(
+    (a, b) => activityGrouped[b].length - activityGrouped[a].length
+  );
+
+  const toggleCat = (cat: string) => {
+    setExpandedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
   return (
     <div className="flex h-full w-full">
       <Sidebar />
@@ -279,7 +322,7 @@ export default function StatsPage() {
           <aside className="w-44 shrink-0 border-r border-gray-100 bg-[#f9f8f6] flex flex-col overflow-hidden">
             <div className="flex-1 px-3 py-4 flex flex-col gap-4 overflow-hidden">
               <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-1.5">연도</p>
+                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1.5">연도</p>
                 <div className="flex flex-wrap gap-1">
                   {years.map((y) => (
                     <button
@@ -300,7 +343,7 @@ export default function StatsPage() {
               {/* 범례 */}
               {!loading && (
                 <div className="pt-3 border-t border-gray-200 space-y-2">
-                  <p className="text-[10px] font-bold tracking-widest text-gray-300 uppercase mb-2">범례</p>
+                  <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-2">범례</p>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-sm bg-emerald-200 shrink-0" />
                     <span className="text-[11px] text-gray-500">수입</span>
@@ -322,7 +365,7 @@ export default function StatsPage() {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-gray-300">불러오는 중...</p>
+                <p className="text-sm text-gray-400">불러오는 중...</p>
               </div>
             ) : (
               <div className="px-8 py-8 space-y-6">
@@ -362,10 +405,10 @@ export default function StatsPage() {
                   <Section title="월별 지출 · 수입">
                     <VerticalBarChart data={monthlyData} />
                     <div className="flex justify-between mt-3 px-1">
-                      <span className="text-[10px] text-gray-300">
+                      <span className="text-[10px] text-gray-500">
                         최대 지출: {formatAmountFull(Math.max(...Object.values(expensesByMonth), 0))}
                       </span>
-                      <span className="text-[10px] text-gray-300">
+                      <span className="text-[10px] text-gray-500">
                         최대 수입: {formatAmountFull(Math.max(...Object.values(incomesByMonth), 0))}
                       </span>
                     </div>
@@ -374,7 +417,7 @@ export default function StatsPage() {
                   {/* 지출 카테고리 */}
                   <Section title="지출 카테고리">
                     {expenseByCategory.length === 0 ? (
-                      <p className="text-sm text-gray-300">지출 데이터가 없습니다.</p>
+                      <p className="text-sm text-gray-400">지출 데이터가 없습니다.</p>
                     ) : (
                       <HorizontalBars
                         items={expenseByCategory}
@@ -387,11 +430,11 @@ export default function StatsPage() {
                   {/* 활동 카테고리 */}
                   <Section title="활동 카테고리">
                     {activityByCategory.length === 0 ? (
-                      <p className="text-sm text-gray-300">활동 데이터가 없습니다.</p>
+                      <p className="text-sm text-gray-400">활동 데이터가 없습니다.</p>
                     ) : (
                       <HorizontalBars
                         items={activityByCategory}
-                        color="bg-gray-300"
+                        color="bg-gray-400"
                         formatValue={(v) => `${v}건`}
                       />
                     )}
@@ -400,12 +443,95 @@ export default function StatsPage() {
                   {/* 월별 일기 작성 */}
                   <Section title="월별 일기 작성">
                     <SimpleBarChart data={diaryMonthData} />
-                    <p className="text-[10px] text-gray-300 mt-3 px-1">
+                    <p className="text-[10px] text-gray-500 mt-3 px-1">
                       월 평균 {(diaryDays / 12).toFixed(1)}일 작성
                     </p>
                   </Section>
 
                 </div>
+
+                {/* ── 활동 정산 ─────────────────────────────────── */}
+                <div className="bg-white border border-gray-100 rounded-xl px-6 py-5">
+
+                  {/* 헤더 + 월 필터 */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">활동 정산</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {activityMonth === null ? `${selectedYear}년 전체` : `${selectedYear}년 ${activityMonth}월`}
+                        {" · "}
+                        {filteredActivityItems.length}건
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap justify-end max-w-xs">
+                      <button
+                        onClick={() => setActivityMonth(null)}
+                        className={`px-2 py-1 rounded text-[11px] transition-colors ${
+                          activityMonth === null ? "bg-gray-900 text-white font-medium" : "text-gray-400 hover:bg-gray-100"
+                        }`}
+                      >
+                        전체
+                      </button>
+                      {MONTHS.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setActivityMonth(m)}
+                          className={`px-2 py-1 rounded text-[11px] transition-colors ${
+                            activityMonth === m ? "bg-gray-900 text-white font-medium" : "text-gray-400 hover:bg-gray-100"
+                          }`}
+                        >
+                          {m}월
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {sortedActivityCats.length === 0 ? (
+                    <p className="text-sm text-gray-400">활동 데이터가 없습니다.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {sortedActivityCats.map((cat) => {
+                        const items = activityGrouped[cat];
+                        const isExpanded = expandedCats.has(cat);
+                        return (
+                          <div key={cat} className="border border-gray-100 rounded-lg overflow-hidden">
+                            {/* 카테고리 헤더 */}
+                            <button
+                              onClick={() => toggleCat(cat)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-[11px] font-semibold text-gray-700">{cat}</span>
+                                <span className="text-[10px] text-gray-400">{items.length}건</span>
+                              </div>
+                              <span className="text-[10px] text-gray-300">
+                                {isExpanded ? "▴" : "▾"}
+                              </span>
+                            </button>
+
+                            {/* 아이템 목록 */}
+                            {isExpanded && (
+                              <div className="border-t border-gray-100">
+                                {items.map((item, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`flex items-baseline gap-3 px-4 py-2 ${
+                                      idx < items.length - 1 ? "border-b border-dotted border-gray-100" : ""
+                                    }`}
+                                  >
+                                    <span className="text-[10px] text-gray-300 shrink-0 w-8">{formatDate(item.date)}</span>
+                                    <span className="text-[12px] text-gray-600">{item.content}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
           </div>

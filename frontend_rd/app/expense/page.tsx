@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "@/lib/supabase";
 
@@ -118,6 +117,13 @@ export default function ExpensePage() {
       setEditingExpenseId(null);
     }
   };
+  const deleteExpense = async (id: string) => {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (!error) {
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      setEditingExpenseId(null);
+    }
+  };
 
   // ── 수입 편집 ──
   const startEditIncome = (item: IncomeRow) => {
@@ -132,6 +138,13 @@ export default function ExpensePage() {
     const { error } = await supabase.from("incomes").update({ category: incomeEditForm.category, source: incomeEditForm.source, amount }).eq("id", editingIncomeId);
     if (!error) {
       setIncomes((prev) => prev.map((i) => i.id === editingIncomeId ? { ...i, ...incomeEditForm, amount } : i));
+      setEditingIncomeId(null);
+    }
+  };
+  const deleteIncome = async (id: string) => {
+    const { error } = await supabase.from("incomes").delete().eq("id", id);
+    if (!error) {
+      setIncomes((prev) => prev.filter((i) => i.id !== id));
       setEditingIncomeId(null);
     }
   };
@@ -295,9 +308,12 @@ export default function ExpensePage() {
                                     <input type="text" inputMode="numeric" value={expenseEditForm.amount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setExpenseEditForm((f) => ({ ...f, amount: raw ? parseInt(raw, 10).toLocaleString() : "" })); }} placeholder="금액" className="w-20 text-[12px] border-b border-gray-200 outline-none py-0.5 text-right text-gray-700 placeholder:text-gray-300 bg-transparent" />
                                     <span className="text-[10px] text-gray-400 self-end pb-0.5">원</span>
                                   </div>
-                                  <div className="flex justify-end gap-2 pt-1">
-                                    <button onClick={cancelEditExpense} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
-                                    <button onClick={saveEditExpense} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                  <div className="flex items-center justify-between pt-1">
+                                    <button onClick={() => deleteExpense(item.id)} className="text-[11px] text-rose-400 hover:text-rose-600 transition-colors">삭제</button>
+                                    <div className="flex gap-2">
+                                      <button onClick={cancelEditExpense} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
+                                      <button onClick={saveEditExpense} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
@@ -337,16 +353,46 @@ export default function ExpensePage() {
                             </div>
                           </div>
                           <div className="space-y-2 pl-1">
-                            {items.map((item) => (
-                              <div key={item.id} className="flex items-center justify-between gap-4 group">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="text-[11px] text-gray-300 shrink-0 w-12">{formatDate(item.date)}</span>
-                                  <span className="text-[12px] text-gray-500 truncate">{[item.place, item.item].filter(Boolean).join(" · ")}</span>
-                                  <Link href={`/record/${item.date}`} className="text-[10px] text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all shrink-0">→ 기록으로</Link>
+                            {items.map((item) =>
+                              editingExpenseId === item.id ? (
+                                <div key={item.id} className="border border-gray-200 rounded-md p-3 bg-white space-y-2">
+                                  <div className="relative" ref={expensePickerRef}>
+                                    <button onClick={() => setOpenExpenseCatPicker((v) => !v)} className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">{expenseEditForm.category} ▾</button>
+                                    {openExpenseCatPicker && (
+                                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-md z-10 min-w-[110px] py-1">
+                                        {expenseCategories.map((cat) => (
+                                          <button key={cat} onClick={() => { setExpenseEditForm((f) => ({ ...f, category: cat })); setOpenExpenseCatPicker(false); }} className="w-full text-left px-3 py-1 text-[11px] hover:bg-gray-50 flex items-center gap-1.5">
+                                            <span className={`text-[9px] ${expenseEditForm.category === cat ? "text-gray-700" : "opacity-0"}`}>✓</span>
+                                            <span className={expenseEditForm.category === cat ? "font-medium text-gray-800" : "text-gray-500"}>{cat}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <input type="text" value={expenseEditForm.place} onChange={(e) => setExpenseEditForm((f) => ({ ...f, place: e.target.value }))} placeholder="이용처" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
+                                    <input type="text" value={expenseEditForm.item} onChange={(e) => setExpenseEditForm((f) => ({ ...f, item: e.target.value }))} placeholder="내용" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
+                                    <input type="text" inputMode="numeric" value={expenseEditForm.amount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setExpenseEditForm((f) => ({ ...f, amount: raw ? parseInt(raw, 10).toLocaleString() : "" })); }} placeholder="금액" className="w-20 text-[12px] border-b border-gray-200 outline-none py-0.5 text-right text-gray-700 placeholder:text-gray-300 bg-transparent" />
+                                    <span className="text-[10px] text-gray-400 self-end pb-0.5">원</span>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-1">
+                                    <button onClick={() => deleteExpense(item.id)} className="text-[11px] text-rose-400 hover:text-rose-600 transition-colors">삭제</button>
+                                    <div className="flex gap-2">
+                                      <button onClick={cancelEditExpense} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
+                                      <button onClick={saveEditExpense} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <span className="text-[12px] text-gray-700 font-medium shrink-0">{formatAmount(item.amount)}</span>
-                              </div>
-                            ))}
+                              ) : (
+                                <div key={item.id} onClick={() => startEditExpense(item)} className="flex items-center justify-between gap-4 group py-1 -mx-2 px-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[11px] text-gray-300 shrink-0 w-12">{formatDate(item.date)}</span>
+                                    <span className="text-[12px] text-gray-500 truncate">{[item.place, item.item].filter(Boolean).join(" · ")}</span>
+                                  </div>
+                                  <span className="text-[12px] text-gray-700 font-medium shrink-0">{formatAmount(item.amount)}</span>
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                       );
@@ -396,9 +442,12 @@ export default function ExpensePage() {
                                     <input type="text" inputMode="numeric" value={incomeEditForm.amount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setIncomeEditForm((f) => ({ ...f, amount: raw ? parseInt(raw, 10).toLocaleString() : "" })); }} placeholder="금액" className="w-20 text-[12px] border-b border-gray-200 outline-none py-0.5 text-right text-gray-700 placeholder:text-gray-300 bg-transparent" />
                                     <span className="text-[10px] text-gray-400 self-end pb-0.5">원</span>
                                   </div>
-                                  <div className="flex justify-end gap-2 pt-1">
-                                    <button onClick={cancelEditIncome} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
-                                    <button onClick={saveEditIncome} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                  <div className="flex items-center justify-between pt-1">
+                                    <button onClick={() => deleteIncome(item.id)} className="text-[11px] text-rose-400 hover:text-rose-600 transition-colors">삭제</button>
+                                    <div className="flex gap-2">
+                                      <button onClick={cancelEditIncome} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
+                                      <button onClick={saveEditIncome} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
@@ -438,16 +487,45 @@ export default function ExpensePage() {
                             </div>
                           </div>
                           <div className="space-y-2 pl-1">
-                            {items.map((item) => (
-                              <div key={item.id} className="flex items-center justify-between gap-4 group">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="text-[11px] text-gray-300 shrink-0 w-12">{formatDate(item.date)}</span>
-                                  <span className="text-[12px] text-gray-500 truncate">{item.source}</span>
-                                  <Link href={`/record/${item.date}`} className="text-[10px] text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all shrink-0">→ 기록으로</Link>
+                            {items.map((item) =>
+                              editingIncomeId === item.id ? (
+                                <div key={item.id} className="border border-gray-200 rounded-md p-3 bg-white space-y-2">
+                                  <div className="relative" ref={incomePickerRef}>
+                                    <button onClick={() => setOpenIncomeCatPicker((v) => !v)} className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">{incomeEditForm.category} ▾</button>
+                                    {openIncomeCatPicker && (
+                                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-md z-10 min-w-[110px] py-1">
+                                        {incomeCategories.map((cat) => (
+                                          <button key={cat} onClick={() => { setIncomeEditForm((f) => ({ ...f, category: cat })); setOpenIncomeCatPicker(false); }} className="w-full text-left px-3 py-1 text-[11px] hover:bg-gray-50 flex items-center gap-1.5">
+                                            <span className={`text-[9px] ${incomeEditForm.category === cat ? "text-gray-700" : "opacity-0"}`}>✓</span>
+                                            <span className={incomeEditForm.category === cat ? "font-medium text-gray-800" : "text-gray-500"}>{cat}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <input type="text" value={incomeEditForm.source} onChange={(e) => setIncomeEditForm((f) => ({ ...f, source: e.target.value }))} placeholder="출처" className="flex-1 text-[12px] border-b border-gray-200 outline-none py-0.5 text-gray-600 placeholder:text-gray-300 bg-transparent" />
+                                    <input type="text" inputMode="numeric" value={incomeEditForm.amount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setIncomeEditForm((f) => ({ ...f, amount: raw ? parseInt(raw, 10).toLocaleString() : "" })); }} placeholder="금액" className="w-20 text-[12px] border-b border-gray-200 outline-none py-0.5 text-right text-gray-700 placeholder:text-gray-300 bg-transparent" />
+                                    <span className="text-[10px] text-gray-400 self-end pb-0.5">원</span>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-1">
+                                    <button onClick={() => deleteIncome(item.id)} className="text-[11px] text-rose-400 hover:text-rose-600 transition-colors">삭제</button>
+                                    <div className="flex gap-2">
+                                      <button onClick={cancelEditIncome} className="text-[11px] text-gray-400 hover:text-gray-600">취소</button>
+                                      <button onClick={saveEditIncome} className="text-[11px] text-gray-900 font-medium hover:text-gray-600">저장</button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <span className="text-[12px] text-emerald-600 font-medium shrink-0">{formatAmount(item.amount)}</span>
-                              </div>
-                            ))}
+                              ) : (
+                                <div key={item.id} onClick={() => startEditIncome(item)} className="flex items-center justify-between gap-4 group py-1 -mx-2 px-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[11px] text-gray-300 shrink-0 w-12">{formatDate(item.date)}</span>
+                                    <span className="text-[12px] text-gray-500 truncate">{item.source}</span>
+                                  </div>
+                                  <span className="text-[12px] text-emerald-600 font-medium shrink-0">{formatAmount(item.amount)}</span>
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                       );
