@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from models import get_model
+from auth import get_current_user
 
 router = APIRouter(prefix="/classify", tags=["classify"])
 
@@ -19,7 +20,10 @@ class ClassifyResponse(BaseModel):
 
 
 @router.post("", response_model=ClassifyResponse)
-async def classify_activity(req: ClassifyRequest):
+async def classify_activity(
+    req: ClassifyRequest,
+    user_id: str = Depends(get_current_user),
+):
     """활동 텍스트를 카테고리로 자동 분류"""
     if not req.content.strip():
         raise HTTPException(status_code=400, detail="content가 비어 있습니다.")

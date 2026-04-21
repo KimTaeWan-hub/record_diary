@@ -7,7 +7,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 class OllamaModel(AIModel):
     # 사용할 모델명: "gemma3", "gemma4", "llama3.2" 등 ollama pull한 모델
-    MODEL_ID = "gemma3"
+    MODEL_ID = "gemma4"
 
     def classify_activity(self, content: str, categories: list[str]) -> dict:
         categories_str = ", ".join(categories)

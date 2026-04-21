@@ -1,4 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 const navItems = [
   { label: "사초", sublabel: "일기", href: "/diary" },
@@ -13,6 +19,24 @@ const bottomItems = [
 ];
 
 export default function Sidebar() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   return (
     <aside className="w-60 shrink-0 h-full flex flex-col border-r border-gray-100 bg-[#f9f8f6]">
       {/* Logo */}
@@ -56,6 +80,33 @@ export default function Sidebar() {
             <span className="text-[11px] text-gray-400">{item.sublabel}</span>
           </Link>
         ))}
+
+        {/* 유저 정보 + 로그아웃 */}
+        {user && (
+          <div className="pt-2 border-t border-gray-100 mt-1">
+            <div className="px-3 py-1.5 flex items-center gap-2">
+              {user.user_metadata?.avatar_url ? (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt="avatar"
+                  className="w-5 h-5 rounded-full"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-gray-300" />
+              )}
+              <span className="text-[11px] text-gray-500 truncate flex-1">
+                {user.user_metadata?.full_name ?? user.email}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left px-3 py-2 rounded-md text-[11px] text-gray-400 hover:text-gray-700 hover:bg-gray-200/70 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
+        )}
+
         <p className="text-[11px] text-gray-400 text-center pt-2">
           조선왕조실록 정신으로 기록합니다
         </p>

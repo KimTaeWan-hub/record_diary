@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 import httpx
 from config import SUPABASE_URL, SUPABASE_KEY
@@ -40,42 +41,39 @@ def build_chunk(
 
 # ── Supabase 데이터 조회 헬퍼 ────────────────────────────────────
 
-async def _fetch_date_data(client: httpx.AsyncClient, date_str: str) -> tuple:
+async def _fetch_date_data(client: httpx.AsyncClient, user_id: str, date_str: str) -> tuple:
     diary_res, act_res, exp_res = await asyncio.gather(
         client.get(
             f"{SUPABASE_URL}/rest/v1/diaries",
-            params={"date": f"eq.{date_str}", "select": "content"},
+            params={"date": f"eq.{date_str}", "user_id": f"eq.{user_id}", "select": "content"},
             headers=HEADERS,
         ),
         client.get(
             f"{SUPABASE_URL}/rest/v1/activities",
-            params={"date": f"eq.{date_str}", "type": "eq.bullet",
-                    "select": "category,content"},
+            params={"date": f"eq.{date_str}", "user_id": f"eq.{user_id}",
+                    "type": "eq.bullet", "select": "category,content"},
             headers=HEADERS,
         ),
         client.get(
             f"{SUPABASE_URL}/rest/v1/expenses",
-            params={"date": f"eq.{date_str}", "amount": "gt.0",
-                    "select": "category,place,item,amount"},
+            params={"date": f"eq.{date_str}", "user_id": f"eq.{user_id}",
+                    "amount": "gt.0", "select": "category,place,item,amount"},
             headers=HEADERS,
         ),
     )
-    diaries   = diary_res.json()
+    diaries    = diary_res.json()
     activities = act_res.json()
     expenses   = exp_res.json()
     diary_text = diaries[0]["content"] if diaries else None
     return diary_text, activities, expenses
 
 
-import asyncio
-
-
 # ── 날짜 단위 인덱싱 ──────────────────────────────────────────────
 
-async def index_date(date_str: str) -> dict:
+async def index_date(user_id: str, date_str: str) -> dict:
     """특정 날짜 데이터를 임베딩하여 diary_embeddings에 upsert"""
     async with httpx.AsyncClient(timeout=60.0) as client:
-        diary_text, activities, expenses = await _fetch_date_data(client, date_str)
+        diary_text, activities, expenses = await _fetch_date_data(client, user_id, date_str)
 
         if not diary_text and not activities and not expenses:
             return {"status": "skipped", "reason": "데이터 없음"}
@@ -98,6 +96,7 @@ async def index_date(date_str: str) -> dict:
             headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
             json={
                 "date": date_str,
+                "user_id": user_id,
                 "content": chunk,
                 "embedding": embedding,
                 "metadata": metadata,
@@ -110,17 +109,16 @@ async def index_date(date_str: str) -> dict:
         return {"status": "ok", "date": date_str}
 
 
-async def index_all() -> dict:
-    """저장된 모든 날짜를 순서대로 인덱싱"""
+async def index_all(user_id: str) -> dict:
+    """해당 유저의 저장된 모든 날짜를 순서대로 인덱싱"""
     async with httpx.AsyncClient(timeout=60.0) as client:
-        # 날짜 목록 수집 (diaries + activities + expenses 통합)
         results = await asyncio.gather(
             client.get(f"{SUPABASE_URL}/rest/v1/diaries",
-                       params={"select": "date"}, headers=HEADERS),
+                       params={"user_id": f"eq.{user_id}", "select": "date"}, headers=HEADERS),
             client.get(f"{SUPABASE_URL}/rest/v1/activities",
-                       params={"select": "date"}, headers=HEADERS),
+                       params={"user_id": f"eq.{user_id}", "select": "date"}, headers=HEADERS),
             client.get(f"{SUPABASE_URL}/rest/v1/expenses",
-                       params={"select": "date", "amount": "gt.0"}, headers=HEADERS),
+                       params={"user_id": f"eq.{user_id}", "select": "date", "amount": "gt.0"}, headers=HEADERS),
         )
         all_dates = sorted({
             row["date"]
@@ -130,7 +128,7 @@ async def index_all() -> dict:
 
     indexed, skipped, errors = 0, 0, 0
     for date_str in all_dates:
-        result = await index_date(date_str)
+        result = await index_date(user_id, date_str)
         if result["status"] == "ok":
             indexed += 1
         elif result["status"] == "skipped":
@@ -144,6 +142,7 @@ async def index_all() -> dict:
 # ── 벡터 검색 ────────────────────────────────────────────────────
 
 async def search_similar(
+    user_id: str,
     query: str,
     top_k: int = 5,
     year: int | None = None,
@@ -152,7 +151,11 @@ async def search_similar(
     """쿼리와 의미적으로 유사한 날짜 청크 반환"""
     embedding = get_embedding(query)
 
-    payload: dict = {"query_embedding": embedding, "match_count": top_k}
+    payload: dict = {
+        "query_embedding": embedding,
+        "match_count": top_k,
+        "filter_user_id": user_id,
+    }
     if year:
         payload["filter_year"] = year
     if month:
@@ -172,9 +175,17 @@ async def search_similar(
 
 # ── SQL 기반 데이터 조회 ─────────────────────────────────────────
 
-async def fetch_expenses_summary(year: int | None, month: int | None) -> list[dict]:
-    params = {"select": "date,category,place,item,amount", "amount": "gt.0",
-              "order": "date.desc"}
+async def fetch_expenses_summary(
+    user_id: str,
+    year: int | None,
+    month: int | None,
+) -> list[dict]:
+    params = {
+        "select": "date,category,place,item,amount",
+        "user_id": f"eq.{user_id}",
+        "amount": "gt.0",
+        "order": "date.desc",
+    }
     if year:
         params["date"] = f"gte.{year}-01-01"
     if month and year:
@@ -192,11 +203,17 @@ async def fetch_expenses_summary(year: int | None, month: int | None) -> list[di
 
 
 async def fetch_activities_by_category(
+    user_id: str,
     category: str | None,
     year: int | None,
     month: int | None,
 ) -> list[dict]:
-    params = {"select": "date,category,content", "type": "eq.bullet", "order": "date.desc"}
+    params = {
+        "select": "date,category,content",
+        "user_id": f"eq.{user_id}",
+        "type": "eq.bullet",
+        "order": "date.desc",
+    }
     if category:
         params["category"] = f"eq.{category}"
     if year:

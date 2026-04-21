@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from models import get_model
+from auth import get_current_user
 from services.query_router import route_query
 from services.rag import search_similar, fetch_expenses_summary, fetch_activities_by_category
 
@@ -14,21 +15,15 @@ class SearchRequest(BaseModel):
 
 class SearchResponse(BaseModel):
     answer: str
-    route: str          # 어떤 방식으로 처리됐는지 (디버깅용)
-    sources: list[dict] # 참조한 원본 데이터
+    route: str
+    sources: list[dict]
 
 
 @router.post("", response_model=SearchResponse)
-async def search(req: SearchRequest):
-    """
-    사용자 질문을 받아 적절한 방식으로 처리 후 AI 답변 반환.
-
-    처리 흐름:
-        1. 쿼리 분류 (expense_sql | activity_sql | semantic)
-        2-a. expense_sql  → Supabase expenses 조회 → AI 요약
-        2-b. activity_sql → Supabase activities 조회 → AI 요약
-        2-c. semantic     → 벡터 검색 → 유사 청크 → AI 답변 생성
-    """
+async def search(
+    req: SearchRequest,
+    user_id: str = Depends(get_current_user),
+):
     route_info = await route_query(req.query)
     route_type = route_info["type"]
     year  = route_info.get("year")
@@ -37,7 +32,7 @@ async def search(req: SearchRequest):
 
     # ── expense_sql ───────────────────────────────────────────────
     if route_type == "expense_sql":
-        expenses = await fetch_expenses_summary(year, month)
+        expenses = await fetch_expenses_summary(user_id, year, month)
         if not expenses:
             return SearchResponse(
                 answer="해당 기간의 지출 데이터가 없습니다.",
@@ -73,7 +68,7 @@ async def search(req: SearchRequest):
     # ── activity_sql ──────────────────────────────────────────────
     elif route_type == "activity_sql":
         category = route_info.get("category")
-        activities = await fetch_activities_by_category(category, year, month)
+        activities = await fetch_activities_by_category(user_id, category, year, month)
         if not activities:
             return SearchResponse(
                 answer="해당 조건의 활동 데이터가 없습니다.",
@@ -92,7 +87,7 @@ async def search(req: SearchRequest):
 
     # ── semantic (일기 벡터 검색) ─────────────────────────────────
     else:
-        chunks = await search_similar(req.query, top_k=5, year=year, month=month)
+        chunks = await search_similar(user_id, req.query, top_k=5, year=year, month=month)
         if not chunks:
             return SearchResponse(
                 answer="관련된 일기 기록을 찾지 못했습니다.",

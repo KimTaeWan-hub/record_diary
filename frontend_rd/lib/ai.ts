@@ -1,4 +1,15 @@
+import { supabase } from "@/lib/supabase";
+
 const AI_API_BASE = process.env.NEXT_PUBLIC_AI_API_URL ?? "http://localhost:8000";
+
+async function authHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 // ── 활동 카테고리 분류 ──────────────────────────────────────────
 
@@ -14,7 +25,7 @@ export async function classifyActivity(
 ): Promise<ClassifyResult> {
   const res = await fetch(`${AI_API_BASE}/api/classify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify({ content, categories }),
   });
 
@@ -44,7 +55,7 @@ export async function searchDiary(
 ): Promise<SearchResult> {
   const res = await fetch(`${AI_API_BASE}/api/search`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify({ query, history }),
   });
 
@@ -58,11 +69,10 @@ export async function searchDiary(
 // ── 인덱싱 ─────────────────────────────────────────────────────
 
 export async function indexDate(date: string): Promise<void> {
-  // record 페이지 저장 후 호출 — 해당 날짜 임베딩 갱신
   try {
     await fetch(`${AI_API_BASE}/api/index/date`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify({ date }),
     });
   } catch {

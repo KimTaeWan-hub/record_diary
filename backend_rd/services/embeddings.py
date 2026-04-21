@@ -12,7 +12,7 @@ EMBEDDING_DIMENSIONS = {
 
 
 def get_embedding_dim() -> int:
-    return EMBEDDING_DIMENSIONS.get(EMBEDDING_MODEL, 1536)
+    return EMBEDDING_DIMENSIONS.get(EMBEDDING_MODEL, 1024)
 
 
 def get_embedding(text: str) -> list[float]:
