@@ -27,8 +27,8 @@ export async function middleware(request: NextRequest) {
   // 세션 갱신 (토큰 만료 자동 처리)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 로그인 안 된 상태에서 /login 외 접근 시 리다이렉트
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  // 로그인 안 된 상태에서 /login, /auth/callback 외 접근 시 리다이렉트
+  if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth/callback')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

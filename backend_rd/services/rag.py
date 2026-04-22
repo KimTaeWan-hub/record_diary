@@ -92,7 +92,7 @@ async def index_date(user_id: str, date_str: str) -> dict:
         }
 
         res = await client.post(
-            f"{SUPABASE_URL}/rest/v1/diary_embeddings",
+            f"{SUPABASE_URL}/rest/v1/diary_embeddings?on_conflict=user_id,date",
             headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
             json={
                 "date": date_str,
