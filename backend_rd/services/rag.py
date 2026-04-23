@@ -109,6 +109,30 @@ async def index_date(user_id: str, date_str: str) -> dict:
         return {"status": "ok", "date": date_str}
 
 
+async def index_all_users() -> dict:
+    """모든 유저를 대상으로 전체 인덱싱 (cron용)"""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        results = await asyncio.gather(
+            client.get(f"{SUPABASE_URL}/rest/v1/diaries",
+                       params={"select": "user_id"}, headers=HEADERS),
+            client.get(f"{SUPABASE_URL}/rest/v1/activities",
+                       params={"select": "user_id"}, headers=HEADERS),
+            client.get(f"{SUPABASE_URL}/rest/v1/expenses",
+                       params={"select": "user_id", "amount": "gt.0"}, headers=HEADERS),
+        )
+        user_ids = {
+            row["user_id"]
+            for res in results
+            for row in (res.json() if isinstance(res.json(), list) else [])
+            if row.get("user_id")
+        }
+
+    summary = {}
+    for uid in user_ids:
+        summary[uid] = await index_all(uid)
+    return summary
+
+
 async def index_all(user_id: str) -> dict:
     """해당 유저의 저장된 모든 날짜를 순서대로 인덱싱"""
     async with httpx.AsyncClient(timeout=60.0) as client:
