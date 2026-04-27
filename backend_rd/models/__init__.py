@@ -16,5 +16,8 @@ def get_model() -> AIModel:
     elif ACTIVE_MODEL == "ollama":
         from models.ollama_model import OllamaModel
         return OllamaModel()
+    elif ACTIVE_MODEL == "transformers":
+        from models.transformers_model import TransformersModel
+        return TransformersModel()
     else:
-        raise ValueError(f"지원하지 않는 모델: {ACTIVE_MODEL}. (claude | openai | gemini | ollama)")
+        raise ValueError(f"지원하지 않는 모델: {ACTIVE_MODEL}. (claude | openai | gemini | ollama | transformers)")

@@ -9,4 +9,6 @@ httpx>=0.23.0,<0.28.0
 supabase
 python-jose[cryptography]==3.3.0
 sentence-transformers>=3.0.0
+transformers>=4.51.0
+accelerate>=0.26.0
 apscheduler>=3.10.0

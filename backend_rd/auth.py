@@ -1,9 +1,16 @@
+import base64
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from config import SUPABASE_JWT_SECRET
 
 security = HTTPBearer()
+
+# Supabase JWT Secret은 base64 인코딩된 값으로 제공되므로 디코딩해서 사용
+try:
+    _jwt_secret = base64.b64decode(SUPABASE_JWT_SECRET)
+except Exception:
+    _jwt_secret = SUPABASE_JWT_SECRET.encode()
 
 
 async def get_current_user(
@@ -17,7 +24,7 @@ async def get_current_user(
     try:
         payload = jwt.decode(
             token,
-            SUPABASE_JWT_SECRET,
+            _jwt_secret,
             algorithms=["HS256"],
             options={"verify_aud": False},  # Supabase는 aud 검증 불필요
         )
